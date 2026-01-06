@@ -119,6 +119,10 @@ following color names: 'black', 'red', 'green', 'yellow', 'blue', 'magenta',
     #[arg(name = "clear", long = "clear", action)]
     clear: bool,
 
+    /// Show time labels on the x-axis (bottom axis). By default they are hidden.
+    #[arg(long)]
+    show_time_axis_labels: bool,
+
     #[cfg(not(target_os = "windows"))]
     /// Extra arguments to pass to `ping`. These are platform dependent.
     #[arg(long, allow_hyphen_values = true, num_args = 0.., conflicts_with="cmd")]
@@ -129,14 +133,16 @@ struct App {
     data: Vec<PlotData>,
     display_interval: chrono::Duration,
     started: chrono::DateTime<Local>,
+    show_time_axis_labels: bool,
 }
 
 impl App {
-    fn new(data: Vec<PlotData>, buffer: u64) -> Self {
+    fn new(data: Vec<PlotData>, buffer: u64, show_time_axis_labels: bool) -> Self {
         App {
             data,
             display_interval: chrono::Duration::from_std(Duration::from_secs(buffer)).unwrap(),
             started: Local::now(),
+            show_time_axis_labels,
         }
     }
 
@@ -185,6 +191,10 @@ impl App {
     }
 
     fn x_axis_labels(&self, bounds: [f64; 2]) -> Vec<Span<'_>> {
+        if !self.show_time_axis_labels {
+            return Vec::new();
+        }
+
         let lower_utc = DateTime::<Utc>::from_timestamp(bounds[0] as i64, 0)
             .expect("Error parsing x-axis bounds 0");
         let upper_utc = DateTime::<Utc>::from_timestamp(bounds[1] as i64, 0)
@@ -457,7 +467,7 @@ fn main() -> Result<()> {
         key_tx.clone(),
     ));
 
-    let mut app = App::new(data, args.buffer);
+    let mut app = App::new(data, args.buffer, args.show_time_axis_labels);
     enable_raw_mode()?;
     let stdout = io::stdout();
     let mut backend = CrosstermBackend::new(BufWriter::with_capacity(1024 * 1024 * 4, stdout));
